@@ -84,7 +84,7 @@ class MxTfiBackend(object):
             print "======================Mxtfi send========================"+str(tracking)
             event_type = processed_event['processed_event']
             if event_type=="edx.course.enrollment.activated":
-                self.send_to_backends(processed_event)
+                # self.send_to_backends(processed_event)
                 url = "http://10.5.50.241:9000/analytics/add/"
                 payload = "{\"user_id\":\"9891111998\",\n\"action\":\"CourseEnrolled\",\n\"source\":\"web\",\n\"metadata\":\"enrollment page\",\n\"page\":\"Course Enrolled page\",\n\"event_timestamp\":1543569188,\n\"version\":0}\n"
                 headers = {
@@ -94,12 +94,11 @@ class MxTfiBackend(object):
                     'postman-token': "5e96674c-b5b9-35f3-0796-e45d40edba47"
                     }
                 response = requests.request("POST", url, data=payload, headers=headers)
-
-print(response.text)
+                print(response.text)
         except EventEmissionExit:
             return
-        # else:
-        #     self.send_to_backends(processed_event)
+        else:
+            self.send_to_backends(processed_event)
 
     def process_event(self, event):
         """
