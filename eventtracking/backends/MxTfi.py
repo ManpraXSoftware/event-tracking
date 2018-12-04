@@ -93,7 +93,7 @@ class MxTfiBackend(object):
             user_name = processed_event['username']
             event_source = processed_event['event_source']
 
-            if event_type=="edx.course.enrollment.activated":
+            if event_type=="edx.course.enrollment.activated" and event_source=="browser" or event_source=="server":
                 MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
                 cipher = AES.new(MASER_KEY, AES.MODE_ECB)
                 auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
@@ -101,7 +101,7 @@ class MxTfiBackend(object):
 
                 course_objs = CourseOverview.get_all_courses()
                 course_name = [obj for obj in course_objs if str(obj.id) == course_id]
-                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": event_source, "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
+                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
                 payload_data = json.dumps(payload_data)
 
                 firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
