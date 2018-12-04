@@ -2,8 +2,13 @@
 
 from collections import OrderedDict
 import logging
-
 from eventtracking.processors.exceptions import EventEmissionExit
+# Django modules imported by Manprax Team
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+import json
+from django.conf import settings
+from Crypto.Cipher import AES
+import base64
 
 LOG = logging.getLogger(__name__)
 import requests
@@ -81,20 +86,33 @@ class MxTfiBackend(object):
         """
         try:
             processed_event = self.process_event(event)
-            print "======================Mxtfi send========================"+str(tracking)
-            event_type = processed_event['processed_event']
+            event_type = processed_event['name']
+            course_id  = processed_event['context']['course_id']
+            d = processed_event['time']
+            timestamp = d.strftime("%s")
+            user_name = processed_event['username']
+            event_source = processed_event['event_source']
+
             if event_type=="edx.course.enrollment.activated":
-                # self.send_to_backends(processed_event)
-                url = "http://10.5.50.241:9000/analytics/add/"
-                payload = "{\"user_id\":\"9891111998\",\n\"action\":\"CourseEnrolled\",\n\"source\":\"web\",\n\"metadata\":\"enrollment page\",\n\"page\":\"Course Enrolled page\",\n\"event_timestamp\":1543569188,\n\"version\":0}\n"
+                MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
+                cipher = AES.new(MASER_KEY, AES.MODE_ECB)
+                auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
+                auth = 'access'+' '+auth_token
+
+                course_objs = CourseOverview.get_all_courses()
+                course_name = [obj for obj in course_objs if str(obj.id) == course_id]
+                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": event_source, "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
+                payload_data = json.dumps(payload_data)
+
+                firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
+                url = firki_analytic_server+"analytics/add/"
+                payload = payload_data
                 headers = {
-                    'authorization': "access nNYX3bkUlgCK+BoD+tKzmA==",
+                    'authorization': auth,
                     'content-type': "application/json",
-                    'cache-control': "no-cache",
-                    'postman-token': "5e96674c-b5b9-35f3-0796-e45d40edba47"
-                    }
+                     }
                 response = requests.request("POST", url, data=payload, headers=headers)
-                print(response.text)
+                LOG.info('response status %s',response.status_code)
         except EventEmissionExit:
             return
         else:
