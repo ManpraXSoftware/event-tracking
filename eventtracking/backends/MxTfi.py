@@ -93,7 +93,7 @@ class MxTfiBackend(object):
             user_name = processed_event['username']
             event_source = processed_event['event_source']
 
-            if event_type=="edx.course.enrollment.activated" and event_source=="browser" or event_source=="server":
+            if event_type=="edx.course.enrollment.activated" and(event_source=="browser" or event_source=="server"):
                 MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
                 cipher = AES.new(MASER_KEY, AES.MODE_ECB)
                 auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
