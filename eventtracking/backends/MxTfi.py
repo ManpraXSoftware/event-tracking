@@ -101,12 +101,9 @@ class MxTfiBackend(object):
                 auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
                 auth = 'access'+' '+auth_token
 
-                # course_objs = CourseOverview.get_all_courses()
-                # course_name = [obj for obj in course_objs if str(obj.id) == course_id]
                 course_key = CourseKey.from_string(course_id)
                 course_name = CourseOverview.objects.get(id=course_key).display_name
-                print course_name
-                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
+                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name}
                 payload_data = json.dumps(payload_data)
 
                 firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
