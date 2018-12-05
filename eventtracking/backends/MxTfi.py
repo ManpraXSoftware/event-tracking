@@ -3,12 +3,6 @@
 from collections import OrderedDict
 import logging
 from eventtracking.processors.exceptions import EventEmissionExit
-# Django modules imported by Manprax Team
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-import json
-from django.conf import settings
-from Crypto.Cipher import AES
-import base64
 
 LOG = logging.getLogger(__name__)
 import requests
@@ -93,14 +87,25 @@ class MxTfiBackend(object):
             user_name = processed_event['username']
             event_source = processed_event['event_source']
 
-            if event_type=="edx.course.enrollment.activated" and(event_source=="browser" or event_source=="server"):
+            if event_type=="edx.course.enrollment.activated" and (event_source=="browser" or event_source=="server"):
+                # Django modules imported by Manprax Team
+                from django.conf import settings
+                from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+                from opaque_keys.edx.keys import CourseKey
+                from Crypto.Cipher import AES
+                import json
+                import base64
+
                 MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
                 cipher = AES.new(MASER_KEY, AES.MODE_ECB)
                 auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
                 auth = 'access'+' '+auth_token
 
-                course_objs = CourseOverview.get_all_courses()
-                course_name = [obj for obj in course_objs if str(obj.id) == course_id]
+                # course_objs = CourseOverview.get_all_courses()
+                # course_name = [obj for obj in course_objs if str(obj.id) == course_id]
+                course_key = CourseKey.from_string(course_id)
+                course_name = CourseOverview.objects.filter(id=course_key)[0].display_name
+                print course_name
                 payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
                 payload_data = json.dumps(payload_data)
 
