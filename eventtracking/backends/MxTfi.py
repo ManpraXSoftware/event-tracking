@@ -104,7 +104,7 @@ class MxTfiBackend(object):
                 # course_objs = CourseOverview.get_all_courses()
                 # course_name = [obj for obj in course_objs if str(obj.id) == course_id]
                 course_key = CourseKey.from_string(course_id)
-                course_name = CourseOverview.objects.filter(id=course_key)[0].display_name
+                course_name = CourseOverview.objects.get(id=course_key).display_name
                 print course_name
                 payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name[0].display_name}
                 payload_data = json.dumps(payload_data)
