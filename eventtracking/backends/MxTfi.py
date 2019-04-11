@@ -6,7 +6,13 @@ from eventtracking.processors.exceptions import EventEmissionExit
 
 LOG = logging.getLogger(__name__)
 import requests
-
+from django.conf import settings
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+from opaque_keys.edx.keys import CourseKey
+from Crypto.Cipher import AES
+import json
+import base64
+import re
 
 class MxTfiBackend(object):
     """
@@ -87,28 +93,46 @@ class MxTfiBackend(object):
             user_name = processed_event['username']
             event_source = processed_event['event_source']
 
-            if event_type=="edx.course.enrollment.activated" and (event_source=="browser" or event_source=="server"):
-                # Django modules imported by Manprax Team
-                from django.conf import settings
-                from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-                from opaque_keys.edx.keys import CourseKey
-                from Crypto.Cipher import AES
-                import json
-                import base64
-
-                MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
-                cipher = AES.new(MASER_KEY, AES.MODE_ECB)
-                auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
-                auth = 'access'+' '+auth_token
-
+            MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
+            cipher = AES.new(MASER_KEY, AES.MODE_ECB)
+            auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
+            auth = 'access'+' '+auth_token
+            
+            if len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['page']))!=0 and (event_source=="browser" or event_source=="server"):
                 course_key = CourseKey.from_string(course_id)
                 course_name = CourseOverview.objects.get(id=course_key).display_name
-                payload_data = {"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name}
-                payload_data = json.dumps(payload_data)
+                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseOpen", "page": course_name, "metadata":course_name})
 
                 firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
                 url = firki_analytic_server+"analytics/add/"
-                payload = payload_data
+                headers = {
+                    'authorization': auth,
+                    'content-type': "application/json",
+                     }
+                response = requests.request("POST", url, data=payload, headers=headers)
+                LOG.info('response status %s',response.status_code)
+
+            if (len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['page']))!=0 and event_type=="page_close") and (event_source=="browser" or event_source=="server"):
+                course_key = CourseKey.from_string(course_id)
+                course_name = CourseOverview.objects.get(id=course_key).display_name
+                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "AppClose", "page": "ProfilePage", "metadata":course_name})
+
+                firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
+                url = firki_analytic_server+"analytics/add/"
+                headers = {
+                    'authorization': auth,
+                    'content-type': "application/json",
+                     }
+                response = requests.request("POST", url, data=payload, headers=headers)
+                LOG.info('response status %s',response.status_code)
+
+            if event_type=="edx.course.enrollment.activated" and (event_source=="browser" or event_source=="server"):
+                course_key = CourseKey.from_string(course_id)
+                course_name = CourseOverview.objects.get(id=course_key).display_name
+                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name})
+
+                firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
+                url = firki_analytic_server+"analytics/add/"
                 headers = {
                     'authorization': auth,
                     'content-type': "application/json",
