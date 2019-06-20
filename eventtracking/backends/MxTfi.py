@@ -85,6 +85,7 @@ class MxTfiBackend(object):
         Logs and swallows all `Exception`.
         """
         try:
+            
             processed_event = self.process_event(event)
             event_type = processed_event['name']
             course_id  = processed_event['context']['course_id']
@@ -92,44 +93,46 @@ class MxTfiBackend(object):
             timestamp = d.strftime("%s")
             user_name = processed_event['username']
             event_source = processed_event['event_source']
-
+            
             MASER_KEY = settings.FEATURES['MX_TINCAN_SERVER_AUTH_KEY']
             cipher = AES.new(MASER_KEY, AES.MODE_ECB)
             auth_token = base64.b64encode(cipher.encrypt(user_name.rjust(16)))
             auth = 'access'+' '+auth_token
             
-            if len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['page']))!=0 and (event_source=="browser" or event_source=="server"):
-                course_key = CourseKey.from_string(course_id)
-                course_name = CourseOverview.objects.get(id=course_key).display_name
-                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseOpen", "page": course_name, "metadata":course_name})
+            if event['referer']:
+            	if len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['referer']))!=0 and (event_source=="browser" or event_source=="server"):
+                	course_key = CourseKey.from_string(course_id)
+                	course_name = CourseOverview.objects.get(id=course_key).display_name
+                	payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseOpen", "page": course_name, "metadata":course_name})
 
-                firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
-                url = firki_analytic_server+"analytics/add/"
-                headers = {
-                    'authorization': auth,
-                    'content-type': "application/json",
-                     }
-                response = requests.request("POST", url, data=payload, headers=headers)
-                LOG.info('response status %s',response.status_code)
+                	firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
+                	url = firki_analytic_server+"analytics/add/"
+                	headers = {
+                    	'authorization': auth,
+                    	'content-type': "application/json",
+                     	}
+                	response = requests.request("POST", url, data=payload, headers=headers)
+                	LOG.info('Analytic  response status %s',response.status_code)
 
-            if (len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['page']))!=0 and event_type=="page_close") and (event_source=="browser" or event_source=="server"):
-                course_key = CourseKey.from_string(course_id)
-                course_name = CourseOverview.objects.get(id=course_key).display_name
-                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "AppClose", "page": "ProfilePage", "metadata":course_name})
+            	if (len(re.findall(r'courses/[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+/courseware',event['referer']))!=0 and event_type=="page_close") and (event_source=="browser" or event_source=="server"):
+                	course_key = CourseKey.from_string(course_id)
+                	course_name = CourseOverview.objects.get(id=course_key).display_name
+                	payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "AppClose", "page": "ProfilePage", "metadata":course_name})
 
-                firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
-                url = firki_analytic_server+"analytics/add/"
-                headers = {
-                    'authorization': auth,
-                    'content-type': "application/json",
-                     }
-                response = requests.request("POST", url, data=payload, headers=headers)
-                LOG.info('response status %s',response.status_code)
-
+                	firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
+                	url = firki_analytic_server+"analytics/add/"
+                	headers = {
+                    	'authorization': auth,
+                    	'content-type': "application/json",
+                    	 }
+                	response = requests.request("POST", url, data=payload, headers=headers)
+                	LOG.info('Analytic response status %s',response.status_code)
+            else:
+            	LOG.info('event[referer] IS EMPTY STRING THATS WHY AppClose &  CourseOpen ANALYTICS NOT REPORTED ')	
             if event_type=="edx.course.enrollment.activated" and (event_source=="browser" or event_source=="server"):
                 course_key = CourseKey.from_string(course_id)
                 course_name = CourseOverview.objects.get(id=course_key).display_name
-                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": "Enrolled page", "metadata":course_name})
+                payload = json.dumps({"user_id": user_name, "event_timestamp": timestamp, "source": "web", "version": 0, "action": "CourseEnrolled", "page": course_name, "metadata":course_name})
 
                 firki_analytic_server = settings.FEATURES['MX_TINCAN_SERVER_IP']
                 url = firki_analytic_server+"analytics/add/"
@@ -138,8 +141,8 @@ class MxTfiBackend(object):
                     'content-type': "application/json",
                      }
                 response = requests.request("POST", url, data=payload, headers=headers)
-                LOG.info('response status %s',response.status_code)
-        except EventEmissionExit:
+                LOG.info('Analytic response status %s',response.status_code)
+        except EventEmissionExit :
             return
         else:
             self.send_to_backends(processed_event)
